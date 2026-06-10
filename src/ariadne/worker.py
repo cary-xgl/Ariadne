@@ -78,7 +78,14 @@ def ingest(conn, payload: dict) -> None:
             raw_item_id = upsert_raw_item(conn, item)
             enqueue(conn, "normalize", {"raw_item_id": raw_item_id})
 
-    enqueue(conn, "ingest", {"feed_urls": feed_urls}, run_after_seconds=900)
+    if _should_reschedule_ingest(payload):
+        enqueue(conn, "ingest", {"feed_urls": feed_urls, "repeat": True}, run_after_seconds=900)
+
+
+def _should_reschedule_ingest(payload: dict) -> bool:
+    if "repeat" in payload:
+        return bool(payload["repeat"])
+    return "feed_urls" not in payload
 
 
 def upsert_raw_item(conn, item: FeedItem) -> str:

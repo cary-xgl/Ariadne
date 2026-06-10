@@ -30,6 +30,7 @@ Useful endpoints:
 - `GET http://localhost:8000/health`
 - `POST http://localhost:8000/internal/jobs` with `{"type":"ingest","payload":{}}`
 - `POST http://localhost:8000/internal/jobs` with `{"type":"ingest","payload":{"sample":true}}`
+- `POST http://localhost:8000/internal/jobs` with `{"type":"ingest","payload":{"feed_urls":["https://hnrss.org/frontpage"]}}`
 - `POST http://localhost:8000/feishu/events` with `{"item_id":"...","action":"save_obsidian"}`
 
 FreshRSS is exposed at `http://localhost:8080`.
@@ -51,3 +52,5 @@ Invoke-RestMethod -Method Post http://localhost:8000/internal/jobs `
 ```
 
 The sample item is deterministic. Re-running it should not create duplicate normalized items, analysis rows, or dry-run push events.
+
+Ad-hoc `feed_urls` jobs run once by default. Add `"repeat": true` to the payload if the worker should schedule the same feed again.
