@@ -19,7 +19,8 @@ Redis and Celery are intentionally not part of the first version.
 
 1. Optionally copy `.env.example` to `.env`.
 2. Optionally set `RSS_FEED_URLS` to one or more comma-separated RSS or Atom feed URLs.
-3. Start the stack:
+3. Optionally set `FRESHRSS_FEED_URLS` to one or more FreshRSS output feed URLs.
+4. Start the stack:
 
 ```bash
 docker compose up --build
@@ -34,6 +35,40 @@ Useful endpoints:
 - `POST http://localhost:8000/feishu/events` with `{"item_id":"...","action":"save_obsidian"}`
 
 FreshRSS is exposed at `http://localhost:8080`.
+
+## FreshRSS Feed Integration
+
+FreshRSS is the RSS source management UI. Ariadne reads FreshRSS output feeds through the same ingestion pipeline used for normal RSS URLs.
+
+Start FreshRSS:
+
+```powershell
+docker compose up -d freshrss
+```
+
+Then open:
+
+```text
+http://localhost:8080
+```
+
+Use the FreshRSS page to initialize the user, add RSS sources, import OPML, group feeds, and check whether each source refreshes correctly.
+
+After FreshRSS has a feed output URL, configure Ariadne with:
+
+```env
+FRESHRSS_FEED_URLS=http://localhost:8080/path/to/freshrss/output
+```
+
+Or test a FreshRSS output URL as a one-shot job:
+
+```powershell
+Invoke-RestMethod -Method Post http://localhost:8000/internal/jobs `
+  -ContentType 'application/json' `
+  -Body '{"type":"ingest","payload":{"feed_urls":["http://localhost:8080/path/to/freshrss/output"]}}'
+```
+
+FreshRSS remains responsible for source management. Ariadne remains responsible for deduplication, analysis, push, feedback, and Obsidian export.
 
 Run a database smoke check against the local Compose database:
 
