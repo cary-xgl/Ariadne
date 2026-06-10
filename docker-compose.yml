@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ariadne
+      POSTGRES_USER: ariadne
+      POSTGRES_PASSWORD: ariadne
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ariadne -d ariadne"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  freshrss:
+    image: freshrss/freshrss:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - freshrss-data:/var/www/FreshRSS/data
+      - freshrss-extensions:/var/www/FreshRSS/extensions
+
+  api:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://ariadne:ariadne@postgres:5432/ariadne
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: ["python", "-m", "ariadne.worker"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://ariadne:ariadne@postgres:5432/ariadne
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  freshrss-data:
+  freshrss-extensions:
