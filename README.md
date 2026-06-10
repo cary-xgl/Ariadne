@@ -49,3 +49,5 @@ Invoke-RestMethod -Method Post http://localhost:8000/internal/jobs `
   -ContentType 'application/json' `
   -Body '{"type":"ingest","payload":{"sample":true}}'
 ```
+
+The sample item is deterministic. Re-running it should not create duplicate normalized items, analysis rows, or dry-run push events.

@@ -128,11 +128,18 @@ def normalize(conn, payload: dict) -> None:
     canonical_url = canonicalize_url(raw_item["url"])
     content = normalize_text(raw_item["raw_content"])
     normalized_hash = sha256_text(f"{raw_item['title']}\n{canonical_url}\n{content}")
+    existing = conn.execute(
+        "SELECT id FROM items WHERE canonical_url = %s",
+        (canonical_url,),
+    ).fetchone()
+    if existing is not None:
+        logger.info("Item already normalized; skipping duplicate raw item: %s", raw_item_id)
+        return
+
     row = conn.execute(
         """
         INSERT INTO items (raw_item_id, canonical_url, title, content, normalized_hash)
         VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (canonical_url) DO UPDATE SET updated_at = now()
         RETURNING id
         """,
         (raw_item_id, canonical_url, raw_item["title"], content, normalized_hash),
@@ -145,6 +152,9 @@ def dedupe(conn, payload: dict) -> None:
     item = conn.execute("SELECT * FROM items WHERE id = %s", (item_id,)).fetchone()
     if item is None:
         raise ValueError(f"item not found: {item_id}")
+    if item["dedupe_group_id"] is not None:
+        logger.info("Item already deduplicated; skipping: %s", item_id)
+        return
 
     duplicate = conn.execute(
         """
@@ -195,6 +205,14 @@ def analyze(conn, payload: dict) -> None:
     item = conn.execute("SELECT * FROM items WHERE id = %s", (item_id,)).fetchone()
     if item is None:
         raise ValueError(f"item not found: {item_id}")
+    if item["status"] in {"pushed", "archived", "ignored"}:
+        logger.info("Item already past analysis stage; skipping: %s", item_id)
+        return
+    if _analysis_exists(conn, item_id):
+        logger.info("Analysis already exists; skipping: %s", item_id)
+        if not _successful_push_exists(conn, item_id):
+            enqueue(conn, "push", {"item_id": item_id})
+        return
 
     conn.execute("UPDATE items SET status = 'analyzing', updated_at = now() WHERE id = %s", (item_id,))
     result = analyze_item(item["title"], item["content"])
@@ -228,6 +246,10 @@ def analyze(conn, payload: dict) -> None:
 
 def push(conn, payload: dict) -> None:
     item_id = payload["item_id"]
+    if _successful_push_exists(conn, item_id):
+        logger.info("Successful push already exists; skipping: %s", item_id)
+        return
+
     item = conn.execute(
         """
         SELECT i.*, ar.reason, ar.importance_score
@@ -286,6 +308,22 @@ def push(conn, payload: dict) -> None:
     if status == "failed":
         raise RuntimeError(error)
     conn.execute("UPDATE items SET status = 'pushed', updated_at = now() WHERE id = %s", (item_id,))
+
+
+def _analysis_exists(conn, item_id: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM analysis_results WHERE item_id = %s LIMIT 1",
+        (item_id,),
+    ).fetchone()
+    return row is not None
+
+
+def _successful_push_exists(conn, item_id: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM push_events WHERE item_id = %s AND status = 'sent' LIMIT 1",
+        (item_id,),
+    ).fetchone()
+    return row is not None
 
 
 def export_obsidian(conn, payload: dict) -> None:
