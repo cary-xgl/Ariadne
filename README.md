@@ -40,10 +40,11 @@ FreshRSS is exposed at `http://localhost:8080`.
 
 FreshRSS is the RSS source management UI. Ariadne reads FreshRSS output feeds through the same ingestion pipeline used for normal RSS URLs.
 
-Start FreshRSS:
+Start FreshRSS and check its status:
 
 ```powershell
 docker compose up -d freshrss
+docker compose ps freshrss
 ```
 
 Then open:
@@ -54,13 +55,25 @@ http://localhost:8080
 
 Use the FreshRSS page to initialize the user, add RSS sources, import OPML, group feeds, and check whether each source refreshes correctly.
 
-After FreshRSS has a feed output URL, configure Ariadne with:
+Recommended first source for testing:
+
+```text
+https://hnrss.org/frontpage
+```
+
+After FreshRSS has articles, copy a FreshRSS output feed URL from the page. Configure Ariadne with:
 
 ```env
 FRESHRSS_FEED_URLS=http://localhost:8080/path/to/freshrss/output
 ```
 
-Or test a FreshRSS output URL as a one-shot job:
+For Docker-to-Docker access, use the Compose service name instead of `localhost`:
+
+```env
+FRESHRSS_FEED_URLS=http://freshrss/path/to/freshrss/output
+```
+
+Or test a FreshRSS output URL as a one-shot job from the host:
 
 ```powershell
 Invoke-RestMethod -Method Post http://localhost:8000/internal/jobs `
@@ -69,6 +82,12 @@ Invoke-RestMethod -Method Post http://localhost:8000/internal/jobs `
 ```
 
 FreshRSS remains responsible for source management. Ariadne remains responsible for deduplication, analysis, push, feedback, and Obsidian export.
+
+If FreshRSS does not open, inspect logs:
+
+```powershell
+docker compose logs freshrss
+```
 
 Run a database smoke check against the local Compose database:
 

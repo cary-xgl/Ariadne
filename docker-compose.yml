@@ -23,6 +23,17 @@ services:
     volumes:
       - freshrss-data:/var/www/FreshRSS/data
       - freshrss-extensions:/var/www/FreshRSS/extensions
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "php",
+          "-r",
+          "exit(@file_get_contents('http://127.0.0.1/i/') === false ? 1 : 0);",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   api:
     build: .
@@ -67,6 +78,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      freshrss:
+        condition: service_started
 
 volumes:
   postgres-data:
