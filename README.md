@@ -29,6 +29,7 @@ Useful endpoints:
 
 - `GET http://localhost:8000/health`
 - `POST http://localhost:8000/internal/jobs` with `{"type":"ingest","payload":{}}`
+- `POST http://localhost:8000/internal/jobs` with `{"type":"ingest","payload":{"sample":true}}`
 - `POST http://localhost:8000/feishu/events` with `{"item_id":"...","action":"save_obsidian"}`
 
 FreshRSS is exposed at `http://localhost:8080`.
@@ -40,3 +41,11 @@ python -m ariadne.smoke
 ```
 
 The local default database URL uses `127.0.0.1` instead of `localhost` to avoid slow IPv6 resolution on some Windows setups.
+
+Run a deterministic local sample through the pipeline:
+
+```powershell
+Invoke-RestMethod -Method Post http://localhost:8000/internal/jobs `
+  -ContentType 'application/json' `
+  -Body '{"type":"ingest","payload":{"sample":true}}'
+```

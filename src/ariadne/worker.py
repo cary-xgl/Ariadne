@@ -12,6 +12,7 @@ from ariadne.config import get_settings
 from ariadne.db import connect
 from ariadne.jobs import Job, claim_next, complete, enqueue, fail
 from ariadne.rss import FeedItem, fetch_feed
+from ariadne.sample import sample_feed_items
 from ariadne.text import canonicalize_url, normalize_text, sha256_text, slugify
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,12 @@ def dispatch(conn, job: Job) -> None:
 
 
 def ingest(conn, payload: dict) -> None:
+    if payload.get("sample"):
+        for item in sample_feed_items():
+            raw_item_id = upsert_raw_item(conn, item)
+            enqueue(conn, "normalize", {"raw_item_id": raw_item_id})
+        return
+
     settings = get_settings()
     feed_urls = payload.get("feed_urls") or settings.feed_urls
     if not feed_urls:
