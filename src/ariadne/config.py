@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql://ariadne:ariadne@localhost:5432/ariadne"
+    database_url: str = "postgresql://ariadne:ariadne@127.0.0.1:5432/ariadne"
     worker_poll_seconds: int = 5
     worker_batch_size: int = 5
     rss_feed_urls: str = ""

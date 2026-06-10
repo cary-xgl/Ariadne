@@ -38,3 +38,5 @@ Run a database smoke check against the local Compose database:
 ```bash
 python -m ariadne.smoke
 ```
+
+The local default database URL uses `127.0.0.1` instead of `localhost` to avoid slow IPv6 resolution on some Windows setups.
