@@ -17,8 +17,8 @@ Redis and Celery are intentionally not part of the first version.
 
 ## Local Setup
 
-1. Copy `.env.example` to `.env`.
-2. Set `RSS_FEED_URLS` to one or more comma-separated RSS or Atom feed URLs.
+1. Optionally copy `.env.example` to `.env`.
+2. Optionally set `RSS_FEED_URLS` to one or more comma-separated RSS or Atom feed URLs.
 3. Start the stack:
 
 ```bash
@@ -32,3 +32,9 @@ Useful endpoints:
 - `POST http://localhost:8000/feishu/events` with `{"item_id":"...","action":"save_obsidian"}`
 
 FreshRSS is exposed at `http://localhost:8080`.
+
+Run a database smoke check against the local Compose database:
+
+```bash
+python -m ariadne.smoke
+```

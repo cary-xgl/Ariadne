@@ -26,23 +26,42 @@ services:
 
   api:
     build: .
-    env_file:
-      - .env
     environment:
       DATABASE_URL: postgresql://ariadne:ariadne@postgres:5432/ariadne
+      FEISHU_CALLBACK_TOKEN: ${FEISHU_CALLBACK_TOKEN:-}
+      FEISHU_WEBHOOK_URL: ${FEISHU_WEBHOOK_URL:-}
+      OBSIDIAN_VAULT_PATH: ${OBSIDIAN_VAULT_PATH:-}
+      RSS_FEED_URLS: ${RSS_FEED_URLS:-}
+      WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-5}
+      WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-5}
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   worker:
     build: .
     command: ["python", "-m", "ariadne.worker"]
-    env_file:
-      - .env
     environment:
       DATABASE_URL: postgresql://ariadne:ariadne@postgres:5432/ariadne
+      FEISHU_CALLBACK_TOKEN: ${FEISHU_CALLBACK_TOKEN:-}
+      FEISHU_WEBHOOK_URL: ${FEISHU_WEBHOOK_URL:-}
+      OBSIDIAN_VAULT_PATH: ${OBSIDIAN_VAULT_PATH:-}
+      RSS_FEED_URLS: ${RSS_FEED_URLS:-}
+      WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-5}
+      WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-5}
     depends_on:
       postgres:
         condition: service_healthy
