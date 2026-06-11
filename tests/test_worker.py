@@ -1,4 +1,4 @@
-from ariadne.worker import _analysis_exists, _should_reschedule_ingest, _successful_push_exists
+from ariadne.worker import _analysis_exists, _should_skip_push, _should_reschedule_ingest, _successful_push_exists
 
 
 class FakeConnection:
@@ -26,6 +26,18 @@ def test_successful_push_exists_returns_false_without_row() -> None:
 
     assert _successful_push_exists(conn, "item-1") is False
     assert conn.calls[0][1] == ("item-1",)
+
+
+def test_should_skip_push_when_successful_push_exists() -> None:
+    conn = FakeConnection({"?column?": 1})
+
+    assert _should_skip_push(conn, "item-1", {}) is True
+
+
+def test_should_not_skip_push_when_force_is_true() -> None:
+    conn = FakeConnection({"?column?": 1})
+
+    assert _should_skip_push(conn, "item-1", {"force": True}) is False
 
 
 def test_should_reschedule_ingest_for_configured_default_feeds() -> None:

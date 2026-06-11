@@ -253,7 +253,7 @@ def analyze(conn, payload: dict) -> None:
 
 def push(conn, payload: dict) -> None:
     item_id = payload["item_id"]
-    if _successful_push_exists(conn, item_id):
+    if _should_skip_push(conn, item_id, payload):
         logger.info("Successful push already exists; skipping: %s", item_id)
         return
 
@@ -323,6 +323,10 @@ def _analysis_exists(conn, item_id: str) -> bool:
         (item_id,),
     ).fetchone()
     return row is not None
+
+
+def _should_skip_push(conn, item_id: str, payload: dict) -> bool:
+    return _successful_push_exists(conn, item_id) and not payload.get("force")
 
 
 def _successful_push_exists(conn, item_id: str) -> bool:
