@@ -68,6 +68,13 @@ def html_to_text(value: str) -> str:
     return parser.get_text()
 
 
+def truncate_text(value: str, limit: int) -> str:
+    value = normalize_text(value)
+    if len(value) <= limit:
+        return value
+    return value[: max(0, limit - 3)].rstrip() + "..."
+
+
 def slugify(value: str, fallback: str = "item") -> str:
     slug = re.sub(r"[^a-zA-Z0-9\u4e00-\u9fff]+", "-", value).strip("-").lower()
     return slug[:80] or fallback

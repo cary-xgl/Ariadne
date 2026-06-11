@@ -1,4 +1,4 @@
-from ariadne.text import canonicalize_url, html_to_text, normalize_text, sha256_text, slugify
+from ariadne.text import canonicalize_url, html_to_text, normalize_text, sha256_text, slugify, truncate_text
 
 
 def test_canonicalize_url_removes_tracking_params() -> None:
@@ -20,6 +20,10 @@ def test_html_to_text_removes_tags_and_keeps_link_text() -> None:
 
 def test_sha256_text_is_stable() -> None:
     assert sha256_text("ariadne") == sha256_text("ariadne")
+
+
+def test_truncate_text_adds_ellipsis_inside_limit() -> None:
+    assert truncate_text("abcdef", 5) == "ab..."
 
 
 def test_slugify_keeps_ascii_and_cjk() -> None:

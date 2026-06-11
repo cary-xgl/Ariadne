@@ -13,7 +13,7 @@ from ariadne.db import connect
 from ariadne.jobs import Job, claim_next, complete, enqueue, fail
 from ariadne.rss import FeedItem, fetch_feed
 from ariadne.sample import sample_feed_items
-from ariadne.text import canonicalize_url, html_to_text, normalize_text, sha256_text, slugify
+from ariadne.text import canonicalize_url, html_to_text, normalize_text, sha256_text, slugify, truncate_text
 
 logger = logging.getLogger(__name__)
 
@@ -259,8 +259,10 @@ def push(conn, payload: dict) -> None:
 
     item = conn.execute(
         """
-        SELECT i.*, ar.reason, ar.importance_score
+        SELECT i.*, s.name AS source_name, ar.reason, ar.importance_score
         FROM items i
+        JOIN raw_items r ON r.id = i.raw_item_id
+        JOIN sources s ON s.id = r.source_id
         LEFT JOIN LATERAL (
           SELECT reason, importance_score
           FROM analysis_results
@@ -308,19 +310,61 @@ def push(conn, payload: dict) -> None:
 
 
 def _format_push_message(item: dict) -> dict:
-    summary = html_to_text(item["summary"] or "")
-    reason = html_to_text(item["reason"] or "No analysis reason")
+    title = truncate_text(item["title"], 80)
+    summary = truncate_text(html_to_text(item["summary"] or ""), 420)
+    reason = truncate_text(html_to_text(item["reason"] or "No analysis reason"), 240)
+    source = truncate_text(str(item.get("source_name") or "Unknown source"), 80)
+    importance = item.get("importance_score")
+    importance_text = f"{float(importance):.2f}" if importance is not None else "N/A"
     return {
-        "msg_type": "text",
-        "content": {
-            "text": (
-                f"{item['title']}\n"
-                f"{summary}\n"
-                f"Why: {reason}\n"
-                f"{item['canonical_url']}"
-            )
+        "msg_type": "interactive",
+        "card": {
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "template": _card_template(importance),
+                "title": {"tag": "plain_text", "content": title},
+            },
+            "elements": [
+                {
+                    "tag": "div",
+                    "text": {"tag": "lark_md", "content": f"**摘要**\n{summary or 'No summary available.'}"},
+                },
+                {
+                    "tag": "div",
+                    "fields": [
+                        {"is_short": True, "text": {"tag": "lark_md", "content": f"**来源**\n{source}"}},
+                        {"is_short": True, "text": {"tag": "lark_md", "content": f"**重要性**\n{importance_text}"}},
+                    ],
+                },
+                {
+                    "tag": "div",
+                    "text": {"tag": "lark_md", "content": f"**推荐理由**\n{reason}"},
+                },
+                {
+                    "tag": "action",
+                    "actions": [
+                        {
+                            "tag": "button",
+                            "text": {"tag": "plain_text", "content": "阅读全文"},
+                            "type": "primary",
+                            "url": item["canonical_url"],
+                        }
+                    ],
+                },
+            ],
         },
     }
+
+
+def _card_template(importance) -> str:
+    if importance is None:
+        return "blue"
+    score = float(importance)
+    if score >= 0.75:
+        return "red"
+    if score >= 0.6:
+        return "orange"
+    return "blue"
 
 
 def _analysis_exists(conn, item_id: str) -> bool:
