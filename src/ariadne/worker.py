@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 import urllib.request
 from datetime import datetime
@@ -353,8 +354,8 @@ def push_digest(conn, payload: dict) -> None:
 
 def _format_push_message(item: dict) -> dict:
     title = truncate_text(item["title"], 80)
-    summary = truncate_text(html_to_text(item["summary"] or ""), 420)
-    reason = truncate_text(html_to_text(item["reason"] or "No analysis reason"), 240)
+    summary = truncate_text(_card_text_without_urls(item["summary"] or ""), 420)
+    reason = truncate_text(_card_text_without_urls(item["reason"] or "No analysis reason"), 240)
     source = truncate_text(str(item.get("source_name") or "Unknown source"), 80)
     importance = item.get("importance_score")
     importance_text = f"{float(importance):.2f}" if importance is not None else "N/A"
@@ -410,7 +411,7 @@ def _format_digest_message(items: list[dict]) -> dict:
     ]
     for index, item in enumerate(items, start=1):
         title = truncate_text(item["title"], 90)
-        summary = truncate_text(html_to_text(item["summary"] or ""), 180)
+        summary = truncate_text(_card_text_without_urls(item["summary"] or ""), 180)
         source = truncate_text(str(item.get("source_name") or "Unknown source"), 50)
         importance = item.get("importance_score")
         importance_text = f"{float(importance):.2f}" if importance is not None else "N/A"
@@ -439,6 +440,13 @@ def _format_digest_message(items: list[dict]) -> dict:
             "elements": elements,
         },
     }
+
+
+def _card_text_without_urls(value: str) -> str:
+    text = html_to_text(value)
+    text = re.sub(r"\b(?:Article|Comments?) URL:\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"https?://\S+", "", text)
+    return normalize_text(text)
 
 
 def _digest_limit(value) -> int:

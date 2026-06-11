@@ -23,6 +23,9 @@ Ariadne currently sends messages through a Feishu custom bot webhook.
 
 Plain text messages were avoided because Feishu does not render arbitrary HTML
 from RSS summaries. The worker strips HTML before building card text.
+Bare URLs are also removed from summary and reason text before truncation.
+Clickable targets should use button URLs or Markdown links instead of visible
+raw URLs.
 
 ## Code Ownership
 
@@ -134,6 +137,7 @@ Current digest sections:
 3. Item blocks
    - Numbered title linked to `items.canonical_url`.
    - Short summary, HTML-stripped and truncated.
+   - Bare URLs removed from the summary text.
    - Source and importance score.
 
 ## Color Rule
