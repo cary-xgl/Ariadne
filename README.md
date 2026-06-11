@@ -36,6 +36,8 @@ Useful endpoints:
 
 FreshRSS is exposed at `http://localhost:8080`.
 
+Feishu push message structure is documented in `docs/feishu-message.md`.
+
 ## FreshRSS Feed Integration
 
 FreshRSS is the RSS source management UI. Ariadne reads FreshRSS output feeds through the same ingestion pipeline used for normal RSS URLs.
