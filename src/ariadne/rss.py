@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from ariadne.text import normalize_text, sha256_text
+from ariadne.text import html_to_text, normalize_text, sha256_text
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,7 @@ def _parse_rss(root: ET.Element, source_url: str) -> list[FeedItem]:
     for entry in root.findall("./channel/item"):
         link = normalize_text(_text(entry, "link") or "")
         title = normalize_text(_text(entry, "title") or link)
-        content = normalize_text(
+        content = html_to_text(
             _text(entry, "description")
             or _text(entry, "{http://purl.org/rss/1.0/modules/content/}encoded")
             or ""
@@ -82,7 +82,7 @@ def _parse_atom(root: ET.Element, source_url: str) -> list[FeedItem]:
     for entry in root.findall("atom:entry", ns):
         link = _atom_link(entry, ns)
         title = normalize_text(_text(entry, "atom:title", ns) or link)
-        content = normalize_text(_text(entry, "atom:content", ns) or _text(entry, "atom:summary", ns) or "")
+        content = html_to_text(_text(entry, "atom:content", ns) or _text(entry, "atom:summary", ns) or "")
         external_id = normalize_text(_text(entry, "atom:id", ns) or link or sha256_text(title))
         published_at = _parse_datetime(_text(entry, "atom:published", ns) or _text(entry, "atom:updated", ns))
         author = _text(entry, "atom:author/atom:name", ns)

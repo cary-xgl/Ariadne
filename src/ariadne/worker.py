@@ -13,7 +13,7 @@ from ariadne.db import connect
 from ariadne.jobs import Job, claim_next, complete, enqueue, fail
 from ariadne.rss import FeedItem, fetch_feed
 from ariadne.sample import sample_feed_items
-from ariadne.text import canonicalize_url, normalize_text, sha256_text, slugify
+from ariadne.text import canonicalize_url, html_to_text, normalize_text, sha256_text, slugify
 
 logger = logging.getLogger(__name__)
 
@@ -276,17 +276,7 @@ def push(conn, payload: dict) -> None:
         raise ValueError(f"item not found: {item_id}")
 
     settings = get_settings()
-    message = {
-        "msg_type": "text",
-        "content": {
-            "text": (
-                f"{item['title']}\n"
-                f"{item['summary'] or ''}\n"
-                f"Why: {item['reason'] or 'No analysis reason'}\n"
-                f"{item['canonical_url']}"
-            )
-        },
-    }
+    message = _format_push_message(item)
     message_id = "dry-run"
     status = "sent"
     error = None
@@ -315,6 +305,22 @@ def push(conn, payload: dict) -> None:
     if status == "failed":
         raise RuntimeError(error)
     conn.execute("UPDATE items SET status = 'pushed', updated_at = now() WHERE id = %s", (item_id,))
+
+
+def _format_push_message(item: dict) -> dict:
+    summary = html_to_text(item["summary"] or "")
+    reason = html_to_text(item["reason"] or "No analysis reason")
+    return {
+        "msg_type": "text",
+        "content": {
+            "text": (
+                f"{item['title']}\n"
+                f"{summary}\n"
+                f"Why: {reason}\n"
+                f"{item['canonical_url']}"
+            )
+        },
+    }
 
 
 def _analysis_exists(conn, item_id: str) -> bool:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import html
+from html.parser import HTMLParser
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -34,6 +36,36 @@ def canonicalize_url(url: str) -> str:
 
 def normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", value or "").strip()
+
+
+class _HTMLTextExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        if data:
+            self.parts.append(data)
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag in {"br", "div", "li", "p", "tr"}:
+            self.parts.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"div", "li", "p", "tr"}:
+            self.parts.append(" ")
+
+    def get_text(self) -> str:
+        return normalize_text(" ".join(self.parts))
+
+
+def html_to_text(value: str) -> str:
+    if not value:
+        return ""
+    parser = _HTMLTextExtractor()
+    parser.feed(html.unescape(value))
+    parser.close()
+    return parser.get_text()
 
 
 def slugify(value: str, fallback: str = "item") -> str:
