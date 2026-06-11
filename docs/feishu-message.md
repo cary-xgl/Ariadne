@@ -12,7 +12,7 @@ Ariadne currently sends messages through a Feishu custom bot webhook.
 - The webhook URL must not be committed to the repository.
 - When `FEISHU_WEBHOOK_URL` is empty, push jobs run in dry-run mode and still
   record a `push_events` row.
-- The current message type is an interactive card:
+- The current single-item and digest message types are interactive cards:
 
 ```json
 {
@@ -26,16 +26,23 @@ from RSS summaries. The worker strips HTML before building card text.
 
 ## Code Ownership
 
-The message body is built in:
+Single-item message body is built in:
 
 ```text
 src/ariadne/worker.py::_format_push_message
+```
+
+Digest message body is built in:
+
+```text
+src/ariadne/worker.py::_format_digest_message
 ```
 
 Push delivery is handled in:
 
 ```text
 src/ariadne/worker.py::push
+src/ariadne/worker.py::push_digest
 ```
 
 The main format regression test is:
@@ -46,7 +53,7 @@ tests/test_push_format.py
 
 Update the test whenever the message contract changes.
 
-## Card Layout
+## Single-Item Card Layout
 
 Current card sections:
 
@@ -85,6 +92,50 @@ result.
 | Reason | `analysis_results.reason` | `No analysis reason` |
 | Read URL | `items.canonical_url` | none |
 
+## Digest Card Layout
+
+Digest cards are created by the `push_digest` job. Use them when the user should
+scan a batch instead of receiving one Feishu message per article.
+
+Recommended manual job payload:
+
+```json
+{
+  "type": "push_digest",
+  "payload": {
+    "limit": 10,
+    "force": true
+  }
+}
+```
+
+Digest behavior:
+
+- `limit` defaults to 10.
+- `limit` is clamped to the range 1-20.
+- Items are ordered by `items.created_at DESC`.
+- Ignored items are excluded.
+- Without `force`, items already sent in a digest are skipped.
+- With `force`, recent items are sent even if they were already included in a
+  previous digest.
+- Digest push events use recipient suffix `:digest`.
+- Digest pushes do not update `items.status` to `pushed`, so high-value
+  single-item push logic can remain independent.
+
+Current digest sections:
+
+1. Header
+   - Title: Chinese text for "Ariadne information digest".
+   - Template color: `blue`.
+
+2. Intro block
+   - Shows how many items are included.
+
+3. Item blocks
+   - Numbered title linked to `items.canonical_url`.
+   - Short summary, HTML-stripped and truncated.
+   - Source and importance score.
+
 ## Color Rule
 
 Header color is selected by `_card_template`:
@@ -100,7 +151,7 @@ Header color is selected by `_card_template`:
 
 When changing Feishu message format:
 
-1. Update `_format_push_message`.
+1. Update `_format_push_message` or `_format_digest_message`.
 2. Add or update `tests/test_push_format.py`.
 3. Run `python -m pytest`.
 4. Send one forced push job for a known item when testing against a real webhook:

@@ -52,6 +52,7 @@ def dispatch(conn, job: Job) -> None:
         "dedupe": dedupe,
         "analyze": analyze,
         "push": push,
+        "push_digest": push_digest,
         "export_obsidian": export_obsidian,
     }
     handler = handlers.get(job.type)
@@ -309,6 +310,47 @@ def push(conn, payload: dict) -> None:
     conn.execute("UPDATE items SET status = 'pushed', updated_at = now() WHERE id = %s", (item_id,))
 
 
+def push_digest(conn, payload: dict) -> None:
+    limit = _digest_limit(payload.get("limit", 10))
+    force = bool(payload.get("force"))
+    settings = get_settings()
+    recipient = _digest_recipient()
+    items = _fetch_digest_items(conn, limit, recipient, force)
+    if not items:
+        logger.info("No items available for digest push.")
+        return
+
+    message = _format_digest_message(items)
+    message_id = "dry-run:digest"
+    status = "sent"
+    error = None
+
+    if settings.feishu_webhook_url:
+        try:
+            request = urllib.request.Request(
+                settings.feishu_webhook_url,
+                data=json.dumps(message).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=20) as response:
+                message_id = response.read().decode("utf-8")[:500]
+        except Exception as exc:
+            status = "failed"
+            error = str(exc)
+
+    for item in items:
+        conn.execute(
+            """
+            INSERT INTO push_events (item_id, recipient, message_id, status, sent_at, last_error)
+            VALUES (%s, %s, %s, %s, now(), %s)
+            """,
+            (item["id"], recipient, message_id, status, error),
+        )
+    if status == "failed":
+        raise RuntimeError(error)
+
+
 def _format_push_message(item: dict) -> dict:
     title = truncate_text(item["title"], 80)
     summary = truncate_text(html_to_text(item["summary"] or ""), 420)
@@ -354,6 +396,104 @@ def _format_push_message(item: dict) -> dict:
             ],
         },
     }
+
+
+def _format_digest_message(items: list[dict]) -> dict:
+    elements = [
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": f"**本次收录 {len(items)} 篇**\n按入库时间从新到旧排列。",
+            },
+        }
+    ]
+    for index, item in enumerate(items, start=1):
+        title = truncate_text(item["title"], 90)
+        summary = truncate_text(html_to_text(item["summary"] or ""), 180)
+        source = truncate_text(str(item.get("source_name") or "Unknown source"), 50)
+        importance = item.get("importance_score")
+        importance_text = f"{float(importance):.2f}" if importance is not None else "N/A"
+        elements.append(
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": (
+                        f"**{index}. [{title}]({item['canonical_url']})**\n"
+                        f"{summary or 'No summary available.'}\n"
+                        f"来源: {source} | 重要性: {importance_text}"
+                    ),
+                },
+            }
+        )
+
+    return {
+        "msg_type": "interactive",
+        "card": {
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "template": "blue",
+                "title": {"tag": "plain_text", "content": "Ariadne 信息流摘要"},
+            },
+            "elements": elements,
+        },
+    }
+
+
+def _digest_limit(value) -> int:
+    try:
+        limit = int(value)
+    except (TypeError, ValueError):
+        limit = 10
+    return min(max(limit, 1), 20)
+
+
+def _digest_recipient() -> str:
+    return f"{get_settings().dry_run_push_recipient}:digest"
+
+
+def _fetch_digest_items(conn, limit: int, recipient: str, force: bool) -> list[dict]:
+    duplicate_filter = ""
+    params: list[object] = [recipient, limit]
+    if force:
+        duplicate_filter = ""
+    else:
+        duplicate_filter = """
+          AND NOT EXISTS (
+            SELECT 1
+            FROM push_events pe
+            WHERE pe.item_id = i.id
+              AND pe.status = 'sent'
+              AND pe.recipient = %s
+          )
+        """
+
+    if force:
+        params = [limit]
+
+    rows = conn.execute(
+        f"""
+        SELECT i.id, i.title, i.canonical_url, i.summary, i.created_at,
+               s.name AS source_name, ar.importance_score
+        FROM items i
+        JOIN raw_items r ON r.id = i.raw_item_id
+        JOIN sources s ON s.id = r.source_id
+        LEFT JOIN LATERAL (
+          SELECT importance_score
+          FROM analysis_results
+          WHERE item_id = i.id
+          ORDER BY created_at DESC
+          LIMIT 1
+        ) ar ON true
+        WHERE i.status <> 'ignored'
+        {duplicate_filter}
+        ORDER BY i.created_at DESC
+        LIMIT %s
+        """,
+        tuple(params),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def _card_template(importance) -> str:
