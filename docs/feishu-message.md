@@ -26,6 +26,8 @@ from RSS summaries. The worker strips HTML before building card text.
 Bare URLs are also removed from summary and reason text before truncation.
 Clickable targets should use button URLs or Markdown links instead of visible
 raw URLs.
+If source text contains `Comments URL: https://...`, Ariadne extracts it as an
+optional discussion link.
 
 ## Code Ownership
 
@@ -80,6 +82,7 @@ Current card sections:
 5. Action block
    - Button: Chinese text for "read full article".
    - URL: `items.canonical_url`.
+   - Optional discussion button when a `Comments URL` is present.
 
 ## Field Sources
 
@@ -139,6 +142,7 @@ Current digest sections:
    - Short summary, HTML-stripped and truncated.
    - Bare URLs removed from the summary text.
    - Source and importance score.
+   - Optional Markdown discussion link when a `Comments URL` is present.
 
 ## Color Rule
 

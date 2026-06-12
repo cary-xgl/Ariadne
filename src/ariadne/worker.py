@@ -17,6 +17,7 @@ from ariadne.sample import sample_feed_items
 from ariadne.text import canonicalize_url, html_to_text, normalize_text, sha256_text, slugify, truncate_text
 
 logger = logging.getLogger(__name__)
+COMMENTS_URL_RE = re.compile(r"\bComments? URL:\s*(https?://\S+)", re.IGNORECASE)
 
 
 def run_forever() -> None:
@@ -359,6 +360,24 @@ def _format_push_message(item: dict) -> dict:
     source = truncate_text(str(item.get("source_name") or "Unknown source"), 80)
     importance = item.get("importance_score")
     importance_text = f"{float(importance):.2f}" if importance is not None else "N/A"
+    actions = [
+        {
+            "tag": "button",
+            "text": {"tag": "plain_text", "content": "阅读全文"},
+            "type": "primary",
+            "url": item["canonical_url"],
+        }
+    ]
+    comments_url = _extract_comments_url(item.get("summary"), item.get("reason"))
+    if comments_url and comments_url != item["canonical_url"]:
+        actions.append(
+            {
+                "tag": "button",
+                "text": {"tag": "plain_text", "content": "讨论"},
+                "type": "default",
+                "url": comments_url,
+            }
+        )
     return {
         "msg_type": "interactive",
         "card": {
@@ -385,14 +404,7 @@ def _format_push_message(item: dict) -> dict:
                 },
                 {
                     "tag": "action",
-                    "actions": [
-                        {
-                            "tag": "button",
-                            "text": {"tag": "plain_text", "content": "阅读全文"},
-                            "type": "primary",
-                            "url": item["canonical_url"],
-                        }
-                    ],
+                    "actions": actions,
                 },
             ],
         },
@@ -415,6 +427,10 @@ def _format_digest_message(items: list[dict]) -> dict:
         source = truncate_text(str(item.get("source_name") or "Unknown source"), 50)
         importance = item.get("importance_score")
         importance_text = f"{float(importance):.2f}" if importance is not None else "N/A"
+        metadata = f"来源: {source} | 重要性: {importance_text}"
+        comments_url = _extract_comments_url(item.get("summary"))
+        if comments_url and comments_url != item["canonical_url"]:
+            metadata = f"{metadata} | [讨论]({comments_url})"
         elements.append(
             {
                 "tag": "div",
@@ -423,7 +439,7 @@ def _format_digest_message(items: list[dict]) -> dict:
                     "content": (
                         f"**{index}. [{title}]({item['canonical_url']})**\n"
                         f"{summary or 'No summary available.'}\n"
-                        f"来源: {source} | 重要性: {importance_text}"
+                        f"{metadata}"
                     ),
                 },
             }
@@ -447,6 +463,15 @@ def _card_text_without_urls(value: str) -> str:
     text = re.sub(r"\b(?:Article|Comments?) URL:\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"https?://\S+", "", text)
     return normalize_text(text)
+
+
+def _extract_comments_url(*values: str | None) -> str:
+    for value in values:
+        text = html_to_text(value or "")
+        match = COMMENTS_URL_RE.search(text)
+        if match:
+            return match.group(1).rstrip(".,;)")
+    return ""
 
 
 def _digest_limit(value) -> int:

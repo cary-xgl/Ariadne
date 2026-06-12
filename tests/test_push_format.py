@@ -8,6 +8,8 @@ def test_format_push_message_strips_html_and_bare_urls_from_summary() -> None:
             "summary": (
                 '<p>Article URL: <a href="https://example.com/item/very/long/path">'
                 "https://example.com/item/very/long/path</a></p>"
+                '<p>Comments URL: <a href="https://news.ycombinator.com/item?id=123">'
+                "https://news.ycombinator.com/item?id=123</a></p>"
             ),
             "reason": "No strong topic match; keep for digest review.",
             "source_name": "Example Feed",
@@ -26,6 +28,24 @@ def test_format_push_message_strips_html_and_bare_urls_from_summary() -> None:
     assert "https://example.com/item/very/long/path" not in summary_text
     assert "Example Feed" in card_text
     assert message["card"]["elements"][-1]["actions"][0]["url"] == "https://example.com/item/very/long/path"
+    assert message["card"]["elements"][-1]["actions"][1]["url"] == "https://news.ycombinator.com/item?id=123"
+
+
+def test_format_push_message_omits_comments_button_when_missing() -> None:
+    message = _format_push_message(
+        {
+            "title": "Example Item",
+            "summary": "A normal summary without a discussion link.",
+            "reason": "No strong topic match; keep for digest review.",
+            "source_name": "Example Feed",
+            "importance_score": 0.42,
+            "canonical_url": "https://example.com/item",
+        }
+    )
+
+    actions = message["card"]["elements"][-1]["actions"]
+    assert len(actions) == 1
+    assert actions[0]["url"] == "https://example.com/item"
 
 
 def test_format_digest_message_contains_multiple_items() -> None:
@@ -33,7 +53,11 @@ def test_format_digest_message_contains_multiple_items() -> None:
         [
             {
                 "title": "First Item",
-                "summary": "<p>Article URL: https://example.com/first/very/long/path First summary</p>",
+                "summary": (
+                    "<p>Article URL: https://example.com/first/very/long/path "
+                    "Comments URL: https://news.ycombinator.com/item?id=456 "
+                    "First summary</p>"
+                ),
                 "source_name": "Feed A",
                 "importance_score": 0.8,
                 "canonical_url": "https://example.com/first/very/long/path",
@@ -55,6 +79,7 @@ def test_format_digest_message_contains_multiple_items() -> None:
     assert "First summary" in card_text
     assert "Article URL:" not in card_text
     assert "https://example.com/first/very/long/path" in card_text
+    assert "[讨论](https://news.ycombinator.com/item?id=456)" in card_text
     assert "Second Item" in card_text
 
 
