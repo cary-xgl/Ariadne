@@ -1,10 +1,14 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
+from ariadne.rss import FeedItem
 from ariadne.worker import (
     _analysis_exists,
     _digest_schedule_hours,
+    _filter_ingest_items,
     _next_digest_run,
+    _positive_int,
     _should_skip_push,
     _should_reschedule_ingest,
     _successful_push_exists,
@@ -77,3 +81,47 @@ def test_next_digest_run_rolls_to_next_day_after_last_slot() -> None:
     now = datetime(2026, 6, 13, 17, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
 
     assert _next_digest_run(now, [9, 17]) == datetime(2026, 6, 14, 9, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+
+def test_filter_ingest_items_skips_old_items_and_keeps_missing_dates() -> None:
+    settings = SimpleNamespace(ingest_max_items_per_feed=10, ingest_max_item_age_days=7)
+    recent = _feed_item("recent", datetime.now(timezone.utc) - timedelta(days=1))
+    old = _feed_item("old", datetime.now(timezone.utc) - timedelta(days=30))
+    undated = _feed_item("undated", None)
+
+    filtered = _filter_ingest_items([recent, old, undated], {}, settings)
+
+    assert [item.title for item in filtered] == ["recent", "undated"]
+
+
+def test_filter_ingest_items_limits_per_feed_before_date_filter() -> None:
+    settings = SimpleNamespace(ingest_max_items_per_feed=2, ingest_max_item_age_days=7)
+    items = [
+        _feed_item("one", datetime.now(timezone.utc)),
+        _feed_item("two", datetime.now(timezone.utc)),
+        _feed_item("three", datetime.now(timezone.utc)),
+    ]
+
+    filtered = _filter_ingest_items(items, {}, settings)
+
+    assert [item.title for item in filtered] == ["one", "two"]
+
+
+def test_positive_int_uses_default_for_invalid_values() -> None:
+    assert _positive_int("3", 7) == 3
+    assert _positive_int("0", 7) == 7
+    assert _positive_int("bad", 7) == 7
+
+
+def _feed_item(title: str, published_at: datetime | None) -> FeedItem:
+    return FeedItem(
+        source_name="Example",
+        source_url="https://example.com/feed",
+        external_id=title,
+        url=f"https://example.com/{title}",
+        title=title,
+        author=None,
+        published_at=published_at,
+        content=title,
+        raw_payload={},
+    )

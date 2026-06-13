@@ -42,6 +42,10 @@ Feishu push message structure is documented in `docs/feishu-message.md`.
 By default, high-importance items are pushed immediately. Medium-importance
 items wait for digest delivery at 09:00 and 17:00 in `Asia/Shanghai`.
 
+Ingestion defaults to processing only the newest 100 entries per feed and only
+entries published within the last 7 days. Entries without a published time are
+kept.
+
 ## FreshRSS Feed Integration
 
 FreshRSS is the RSS source management UI. Ariadne reads FreshRSS output feeds through the same ingestion pipeline used for normal RSS URLs.
@@ -114,3 +118,11 @@ Invoke-RestMethod -Method Post http://localhost:8000/internal/jobs `
 The sample item is deterministic. Re-running it should not create duplicate normalized items, analysis rows, or dry-run push events.
 
 Ad-hoc `feed_urls` jobs run once by default. Add `"repeat": true` to the payload if the worker should schedule the same feed again.
+
+Ad-hoc ingestion can override the default guardrails:
+
+```powershell
+Invoke-RestMethod -Method Post http://localhost:8000/internal/jobs `
+  -ContentType 'application/json' `
+  -Body '{"type":"ingest","payload":{"feed_urls":["https://hnrss.org/frontpage"],"max_item_age_days":3,"max_items_per_feed":30}}'
+```

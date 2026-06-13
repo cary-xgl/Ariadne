@@ -6,7 +6,7 @@ import math
 import re
 import time
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -80,7 +80,8 @@ def ingest(conn, payload: dict) -> None:
         return
 
     for feed_url in feed_urls:
-        for item in fetch_feed(feed_url):
+        items = fetch_feed(feed_url)
+        for item in _filter_ingest_items(items, payload, settings):
             raw_item_id = upsert_raw_item(conn, item)
             enqueue(conn, "normalize", {"raw_item_id": raw_item_id})
 
@@ -92,6 +93,27 @@ def _should_reschedule_ingest(payload: dict) -> bool:
     if "repeat" in payload:
         return bool(payload["repeat"])
     return "feed_urls" not in payload
+
+
+def _filter_ingest_items(items: list[FeedItem], payload: dict, settings) -> list[FeedItem]:
+    max_items = _positive_int(payload.get("max_items_per_feed"), settings.ingest_max_items_per_feed)
+    max_age_days = _positive_int(payload.get("max_item_age_days"), settings.ingest_max_item_age_days)
+    recent_threshold = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+
+    filtered = []
+    for item in items[:max_items]:
+        if item.published_at is not None and item.published_at < recent_threshold:
+            continue
+        filtered.append(item)
+    return filtered
+
+
+def _positive_int(value, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
 
 
 def upsert_raw_item(conn, item: FeedItem) -> str:
