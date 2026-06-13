@@ -5,11 +5,13 @@ from zoneinfo import ZoneInfo
 from ariadne.rss import FeedItem
 from ariadne.worker import (
     _analysis_exists,
+    _default_feed_urls,
     _digest_schedule_hours,
     _digest_schedule_times,
     _filter_ingest_items,
     _next_digest_run,
     _positive_int,
+    _rescheduled_ingest_payload,
     _should_skip_push,
     _should_reschedule_ingest,
     _successful_push_exists,
@@ -65,6 +67,31 @@ def test_should_not_reschedule_ad_hoc_feed_urls_by_default() -> None:
 
 def test_should_reschedule_when_repeat_is_explicit() -> None:
     assert _should_reschedule_ingest({"feed_urls": ["https://hnrss.org/frontpage"], "repeat": True}) is True
+
+
+def test_default_feed_urls_skips_freshrss_output_when_api_is_enabled() -> None:
+    settings = SimpleNamespace(
+        rss_urls=["https://example.com/rss.xml"],
+        freshrss_urls=["http://freshrss/i/?a=rss"],
+        feed_urls=["https://example.com/rss.xml", "http://freshrss/i/?a=rss"],
+    )
+
+    assert _default_feed_urls(settings, use_freshrss_api=True) == ["https://example.com/rss.xml"]
+    assert _default_feed_urls(settings, use_freshrss_api=False) == [
+        "https://example.com/rss.xml",
+        "http://freshrss/i/?a=rss",
+    ]
+
+
+def test_rescheduled_default_ingest_keeps_default_source_selection() -> None:
+    assert _rescheduled_ingest_payload({}, []) == {"repeat": True}
+
+
+def test_rescheduled_ad_hoc_ingest_keeps_explicit_feed_urls() -> None:
+    assert _rescheduled_ingest_payload({"feed_urls": ["https://hnrss.org/frontpage"]}, ["https://hnrss.org/frontpage"]) == {
+        "feed_urls": ["https://hnrss.org/frontpage"],
+        "repeat": True,
+    }
 
 
 def test_digest_schedule_hours_parses_and_sorts_values() -> None:

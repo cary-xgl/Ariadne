@@ -12,6 +12,8 @@ def test_feed_urls_merge_plain_rss_and_freshrss_urls() -> None:
         "https://example.com/atom.xml",
         "http://localhost:8080/i/?a=rss&user=ariadne",
     ]
+    assert settings.rss_urls == ["https://example.com/rss.xml", "https://example.com/atom.xml"]
+    assert settings.freshrss_urls == ["http://localhost:8080/i/?a=rss&user=ariadne"]
 
 
 def test_freshrss_api_configured_requires_base_url_username_and_password() -> None:

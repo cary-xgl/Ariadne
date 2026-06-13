@@ -31,7 +31,15 @@ class Settings(BaseSettings):
 
     @property
     def feed_urls(self) -> list[str]:
-        return _split_urls(self.rss_feed_urls) + _split_urls(self.freshrss_feed_urls)
+        return self.rss_urls + self.freshrss_urls
+
+    @property
+    def rss_urls(self) -> list[str]:
+        return _split_urls(self.rss_feed_urls)
+
+    @property
+    def freshrss_urls(self) -> list[str]:
+        return _split_urls(self.freshrss_feed_urls)
 
     @property
     def freshrss_api_configured(self) -> bool:

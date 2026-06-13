@@ -75,8 +75,8 @@ def ingest(conn, payload: dict) -> None:
         return
 
     settings = get_settings()
-    feed_urls = payload.get("feed_urls") or settings.feed_urls
     use_freshrss_api = settings.freshrss_api_configured and "feed_urls" not in payload
+    feed_urls = payload.get("feed_urls") if "feed_urls" in payload else _default_feed_urls(settings, use_freshrss_api)
     if not feed_urls and not use_freshrss_api:
         logger.info("No RSS_FEED_URLS or FreshRSS API configured; ingestion skipped.")
         return
@@ -99,7 +99,19 @@ def ingest(conn, payload: dict) -> None:
             enqueue(conn, "normalize", {"raw_item_id": raw_item_id})
 
     if _should_reschedule_ingest(payload):
-        enqueue(conn, "ingest", {"feed_urls": feed_urls, "repeat": True}, run_after_seconds=900)
+        enqueue(conn, "ingest", _rescheduled_ingest_payload(payload, feed_urls), run_after_seconds=900)
+
+
+def _default_feed_urls(settings, use_freshrss_api: bool) -> list[str]:
+    if use_freshrss_api:
+        return settings.rss_urls
+    return settings.feed_urls
+
+
+def _rescheduled_ingest_payload(payload: dict, feed_urls: list[str]) -> dict:
+    if "feed_urls" in payload:
+        return {"feed_urls": feed_urls, "repeat": True}
+    return {"repeat": True}
 
 
 def _should_reschedule_ingest(payload: dict) -> bool:
