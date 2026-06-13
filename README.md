@@ -35,7 +35,8 @@ Useful endpoints:
 - `POST http://localhost:8000/internal/jobs` with `{"type":"push_digest","payload":{"limit":10,"force":true}}`
 - `POST http://localhost:8000/feishu/events` with `{"item_id":"...","action":"save_obsidian"}`
 
-FreshRSS is exposed at `http://localhost:8080`.
+FreshRSS is exposed directly at `http://localhost:8080` and through Nginx at
+`http://localhost/freshrss/`.
 
 Feishu push message structure is documented in `docs/feishu-message.md`.
 
@@ -50,17 +51,18 @@ kept.
 
 FreshRSS is the RSS source management UI. Ariadne reads FreshRSS output feeds through the same ingestion pipeline used for normal RSS URLs.
 
-Start FreshRSS and check its status:
+Start FreshRSS and Nginx, then check their status:
 
 ```powershell
-docker compose up -d freshrss
-docker compose ps freshrss
+docker compose up -d freshrss nginx
+docker compose ps freshrss nginx
 ```
 
 Then open:
 
 ```text
 http://localhost:8080
+http://localhost/freshrss/
 ```
 
 Use the FreshRSS page to initialize the user, add RSS sources, import OPML, group feeds, and check whether each source refreshes correctly.
@@ -97,6 +99,7 @@ If FreshRSS does not open, inspect logs:
 
 ```powershell
 docker compose logs freshrss
+docker compose logs nginx
 ```
 
 Run a database smoke check against the local Compose database:
