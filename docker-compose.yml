@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
+      TZ: Asia/Shanghai
       POSTGRES_DB: ariadne
       POSTGRES_USER: ariadne
       POSTGRES_PASSWORD: ariadne
@@ -18,6 +19,8 @@ services:
 
   freshrss:
     image: freshrss/freshrss:latest
+    environment:
+      TZ: Asia/Shanghai
     ports:
       - "8080:80"
     volumes:
@@ -37,6 +40,8 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
+    environment:
+      TZ: Asia/Shanghai
     ports:
       - "80:80"
     volumes:
