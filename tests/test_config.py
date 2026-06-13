@@ -40,3 +40,12 @@ def test_rss_request_headers_parse_semicolon_headers() -> None:
     settings = Settings(rss_extra_headers="X-Api-Key: secret; X-Feed: fresh")
 
     assert settings.rss_request_headers == {"X-Api-Key": "secret", "X-Feed": "fresh"}
+
+
+def test_freshrss_api_configured_requires_base_url_username_and_password() -> None:
+    assert Settings(
+        freshrss_api_base_url="http://freshrss/api/greader.php",
+        freshrss_api_username="user",
+        freshrss_api_password="api-password",
+    ).freshrss_api_configured is True
+    assert Settings(freshrss_api_base_url="http://freshrss/api/greader.php").freshrss_api_configured is False

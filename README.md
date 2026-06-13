@@ -99,6 +99,21 @@ RSS_EXTRA_HEADERS=
 accepts either a JSON object such as `{"X-Api-Key":"secret"}` or
 semicolon-separated headers such as `X-Api-Key: secret; X-Feed: fresh`.
 
+For private FreshRSS instances, prefer the official Google Reader API instead
+of an anonymous RSS output URL:
+
+```env
+FRESHRSS_API_BASE_URL=http://freshrss/api/greader.php
+FRESHRSS_API_USERNAME=your-user
+FRESHRSS_API_PASSWORD=your-api-password
+FRESHRSS_API_ITEM_LIMIT=50
+```
+
+Enable API access and set an API password in FreshRSS before using these
+settings. Ariadne logs in through `accounts/ClientLogin`, reads the
+`reading-list` stream, and sends those items through the existing normalize,
+dedupe, analysis, and push pipeline.
+
 Or test a FreshRSS output URL as a one-shot job from the host:
 
 ```powershell

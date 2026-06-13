@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from ariadne.analysis import analyze_item
 from ariadne.config import get_settings
 from ariadne.db import connect
+from ariadne.freshrss_api import fetch_freshrss_items
 from ariadne.jobs import Job, claim_next, complete, enqueue, fail
 from ariadne.rss import FeedItem, fetch_feed
 from ariadne.sample import sample_feed_items
@@ -75,9 +76,21 @@ def ingest(conn, payload: dict) -> None:
 
     settings = get_settings()
     feed_urls = payload.get("feed_urls") or settings.feed_urls
-    if not feed_urls:
-        logger.info("No RSS_FEED_URLS configured; ingestion skipped.")
+    use_freshrss_api = settings.freshrss_api_configured and "feed_urls" not in payload
+    if not feed_urls and not use_freshrss_api:
+        logger.info("No RSS_FEED_URLS or FreshRSS API configured; ingestion skipped.")
         return
+
+    if use_freshrss_api:
+        items = fetch_freshrss_items(
+            settings.freshrss_api_base_url,
+            settings.freshrss_api_username,
+            settings.freshrss_api_password,
+            settings.freshrss_api_item_limit,
+        )
+        for item in _filter_ingest_items(items, payload, settings):
+            raw_item_id = upsert_raw_item(conn, item)
+            enqueue(conn, "normalize", {"raw_item_id": raw_item_id})
 
     for feed_url in feed_urls:
         items = fetch_feed(feed_url, headers=settings.rss_request_headers)

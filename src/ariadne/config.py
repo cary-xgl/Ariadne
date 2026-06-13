@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     rss_auth_password: str = ""
     rss_auth_bearer_token: str = ""
     rss_extra_headers: str = ""
+    freshrss_api_base_url: str = ""
+    freshrss_api_username: str = ""
+    freshrss_api_password: str = ""
+    freshrss_api_item_limit: int = 50
     feishu_webhook_url: str = ""
     feishu_callback_token: str = ""
     obsidian_vault_path: str = ""
@@ -34,6 +38,10 @@ class Settings(BaseSettings):
     @property
     def feed_urls(self) -> list[str]:
         return _split_urls(self.rss_feed_urls) + _split_urls(self.freshrss_feed_urls)
+
+    @property
+    def freshrss_api_configured(self) -> bool:
+        return bool(self.freshrss_api_base_url and self.freshrss_api_username and self.freshrss_api_password)
 
     @property
     def rss_request_headers(self) -> dict[str, str]:
