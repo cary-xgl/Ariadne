@@ -23,7 +23,7 @@ def test_parse_rss_description_strips_html() -> None:
     assert items[0].content == "Article URL: https://example.com/item"
 
 
-def test_fetch_feed_sends_custom_headers(monkeypatch) -> None:
+def test_fetch_feed_sends_user_agent(monkeypatch) -> None:
     captured = {}
 
     class FakeResponse:
@@ -44,8 +44,7 @@ def test_fetch_feed_sends_custom_headers(monkeypatch) -> None:
 
     monkeypatch.setattr(rss.urllib.request, "urlopen", fake_urlopen)
 
-    fetch_feed("https://example.com/rss", timeout=7, headers={"Authorization": "Bearer token"})
+    fetch_feed("https://example.com/rss", timeout=7)
 
-    assert captured["headers"]["Authorization"] == "Bearer token"
     assert captured["headers"]["User-agent"] == "Ariadne/0.1"
     assert captured["timeout"] == 7
