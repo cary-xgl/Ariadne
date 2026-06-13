@@ -41,14 +41,6 @@ services:
       - "80:80"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-    depends_on:
-      freshrss:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/freshrss/i/ >/dev/null 2>&1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   api:
     build: .
