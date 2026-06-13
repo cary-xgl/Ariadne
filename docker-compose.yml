@@ -21,6 +21,7 @@ services:
     image: freshrss/freshrss:latest
     environment:
       TZ: Asia/Shanghai
+      CRON_MIN: "7"
     ports:
       - "8080:80"
     volumes:
