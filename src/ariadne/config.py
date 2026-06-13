@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     feishu_callback_token: str = ""
     obsidian_vault_path: str = ""
     dry_run_push_recipient: str = Field(default="dry-run")
+    push_immediate_min_importance: float = 0.75
+    digest_min_importance: float = 0.45
+    digest_limit: int = 10
+    digest_schedule_hours: str = "9,17"
+    digest_timezone: str = "Asia/Shanghai"
 
     @property
     def feed_urls(self) -> list[str]:

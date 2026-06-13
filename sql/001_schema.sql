@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS analysis_results (
 
 CREATE TABLE IF NOT EXISTS jobs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  type text NOT NULL CHECK (type IN ('ingest', 'normalize', 'dedupe', 'analyze', 'push', 'push_digest', 'export_obsidian')),
+  type text NOT NULL CHECK (type IN ('ingest', 'normalize', 'dedupe', 'analyze', 'push', 'push_digest', 'schedule_digest', 'export_obsidian')),
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'succeeded', 'failed')),
   run_after timestamptz NOT NULL DEFAULT now(),
@@ -126,4 +126,8 @@ CREATE TABLE IF NOT EXISTS notes (
 
 INSERT INTO jobs (type, payload)
 VALUES ('ingest', '{}'::jsonb)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO jobs (type, payload)
+VALUES ('schedule_digest', '{"bootstrap": true}'::jsonb)
 ON CONFLICT DO NOTHING;

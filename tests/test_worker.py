@@ -1,4 +1,14 @@
-from ariadne.worker import _analysis_exists, _should_skip_push, _should_reschedule_ingest, _successful_push_exists
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from ariadne.worker import (
+    _analysis_exists,
+    _digest_schedule_hours,
+    _next_digest_run,
+    _should_skip_push,
+    _should_reschedule_ingest,
+    _successful_push_exists,
+)
 
 
 class FakeConnection:
@@ -50,3 +60,20 @@ def test_should_not_reschedule_ad_hoc_feed_urls_by_default() -> None:
 
 def test_should_reschedule_when_repeat_is_explicit() -> None:
     assert _should_reschedule_ingest({"feed_urls": ["https://hnrss.org/frontpage"], "repeat": True}) is True
+
+
+def test_digest_schedule_hours_parses_and_sorts_values() -> None:
+    assert _digest_schedule_hours("17, 9, bad, 99") == [9, 17]
+    assert _digest_schedule_hours("bad") == [9, 17]
+
+
+def test_next_digest_run_uses_same_day_when_future_slot_exists() -> None:
+    now = datetime(2026, 6, 13, 8, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    assert _next_digest_run(now, [9, 17]) == datetime(2026, 6, 13, 9, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+
+def test_next_digest_run_rolls_to_next_day_after_last_slot() -> None:
+    now = datetime(2026, 6, 13, 17, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+    assert _next_digest_run(now, [9, 17]) == datetime(2026, 6, 14, 9, 0, tzinfo=ZoneInfo("Asia/Shanghai"))

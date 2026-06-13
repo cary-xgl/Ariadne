@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import time
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from ariadne.analysis import analyze_item
 from ariadne.config import get_settings
@@ -55,6 +57,7 @@ def dispatch(conn, job: Job) -> None:
         "analyze": analyze,
         "push": push,
         "push_digest": push_digest,
+        "schedule_digest": schedule_digest,
         "export_obsidian": export_obsidian,
     }
     handler = handlers.get(job.type)
@@ -220,8 +223,9 @@ def analyze(conn, payload: dict) -> None:
         return
     if _analysis_exists(conn, item_id):
         logger.info("Analysis already exists; skipping: %s", item_id)
-        if not _successful_push_exists(conn, item_id):
-            enqueue(conn, "push", {"item_id": item_id})
+        latest = _latest_analysis(conn, item_id)
+        if latest is not None:
+            _route_after_analysis(conn, item_id, float(latest["importance_score"]))
         return
 
     conn.execute("UPDATE items SET status = 'analyzing', updated_at = now() WHERE id = %s", (item_id,))
@@ -251,7 +255,7 @@ def analyze(conn, payload: dict) -> None:
         "UPDATE items SET status = 'ready', summary = %s, updated_at = now() WHERE id = %s",
         (result.summary, item_id),
     )
-    enqueue(conn, "push", {"item_id": item_id})
+    _route_after_analysis(conn, item_id, result.importance_score)
 
 
 def push(conn, payload: dict) -> None:
@@ -351,6 +355,17 @@ def push_digest(conn, payload: dict) -> None:
         )
     if status == "failed":
         raise RuntimeError(error)
+
+
+def schedule_digest(conn, payload: dict) -> None:
+    settings = get_settings()
+    if not payload.get("bootstrap"):
+        enqueue(conn, "push_digest", {"limit": settings.digest_limit})
+
+    now = datetime.now(ZoneInfo(settings.digest_timezone))
+    next_run = _next_digest_run(now, _digest_schedule_hours(settings.digest_schedule_hours))
+    run_after_seconds = max(60, math.ceil((next_run - now).total_seconds()))
+    enqueue(conn, "schedule_digest", {}, run_after_seconds=run_after_seconds)
 
 
 def _format_push_message(item: dict) -> dict:
@@ -482,6 +497,29 @@ def _digest_limit(value) -> int:
     return min(max(limit, 1), 20)
 
 
+def _digest_schedule_hours(value: str) -> list[int]:
+    hours = []
+    for part in value.split(","):
+        try:
+            hour = int(part.strip())
+        except ValueError:
+            continue
+        if 0 <= hour <= 23:
+            hours.append(hour)
+    return sorted(set(hours)) or [9, 17]
+
+
+def _next_digest_run(now: datetime, hours: list[int]) -> datetime:
+    for day_offset in (0, 1):
+        day = now.date() + timedelta(days=day_offset)
+        for hour in hours:
+            candidate = datetime.combine(day, datetime.min.time(), tzinfo=now.tzinfo).replace(hour=hour)
+            if candidate > now:
+                return candidate
+    tomorrow = now.date() + timedelta(days=1)
+    return datetime.combine(tomorrow, datetime.min.time(), tzinfo=now.tzinfo).replace(hour=hours[0])
+
+
 def _digest_recipient() -> str:
     return f"{get_settings().dry_run_push_recipient}:digest"
 
@@ -505,6 +543,7 @@ def _fetch_digest_items(conn, limit: int, recipient: str, force: bool) -> list[d
     if force:
         params = [limit]
 
+    settings = get_settings()
     rows = conn.execute(
         f"""
         SELECT i.id, i.title, i.canonical_url, i.summary, i.created_at,
@@ -519,12 +558,14 @@ def _fetch_digest_items(conn, limit: int, recipient: str, force: bool) -> list[d
           ORDER BY created_at DESC
           LIMIT 1
         ) ar ON true
-        WHERE i.status <> 'ignored'
+        WHERE i.status = 'ready'
+          AND ar.importance_score >= %s
+          AND ar.importance_score < %s
         {duplicate_filter}
         ORDER BY i.created_at DESC
         LIMIT %s
         """,
-        tuple(params),
+        tuple([settings.digest_min_importance, settings.push_immediate_min_importance, *params]),
     ).fetchall()
     return [dict(row) for row in rows]
 
@@ -546,6 +587,31 @@ def _analysis_exists(conn, item_id: str) -> bool:
         (item_id,),
     ).fetchone()
     return row is not None
+
+
+def _latest_analysis(conn, item_id: str):
+    return conn.execute(
+        """
+        SELECT importance_score
+        FROM analysis_results
+        WHERE item_id = %s
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (item_id,),
+    ).fetchone()
+
+
+def _route_after_analysis(conn, item_id: str, importance_score: float) -> None:
+    settings = get_settings()
+    if importance_score >= settings.push_immediate_min_importance:
+        if not _successful_push_exists(conn, item_id):
+            enqueue(conn, "push", {"item_id": item_id})
+        return
+    if importance_score >= settings.digest_min_importance:
+        logger.info("Item queued for digest window: %s", item_id)
+        return
+    conn.execute("UPDATE items SET status = 'archived', updated_at = now() WHERE id = %s", (item_id,))
 
 
 def _should_skip_push(conn, item_id: str, payload: dict) -> bool:

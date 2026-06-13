@@ -120,13 +120,23 @@ Digest behavior:
 - `limit` defaults to 10.
 - `limit` is clamped to the range 1-20.
 - Items are ordered by `items.created_at DESC`.
-- Ignored items are excluded.
+- Only `ready` medium-importance items are included.
 - Without `force`, items already sent in a digest are skipped.
 - With `force`, recent items are sent even if they were already included in a
   previous digest.
 - Digest push events use recipient suffix `:digest`.
 - Digest pushes do not update `items.status` to `pushed`, so high-value
   single-item push logic can remain independent.
+- `schedule_digest` creates digest jobs at the configured local hours. The
+  default schedule is 09:00 and 17:00 in `Asia/Shanghai`.
+
+Default routing thresholds:
+
+| Importance score | Route |
+| --- | --- |
+| `>= 0.75` | Immediate single-item push |
+| `>= 0.45` and `< 0.75` | Scheduled digest |
+| `< 0.45` | Silent archive |
 
 Current digest sections:
 

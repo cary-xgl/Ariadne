@@ -32,11 +32,15 @@ Useful endpoints:
 - `POST http://localhost:8000/internal/jobs` with `{"type":"ingest","payload":{}}`
 - `POST http://localhost:8000/internal/jobs` with `{"type":"ingest","payload":{"sample":true}}`
 - `POST http://localhost:8000/internal/jobs` with `{"type":"ingest","payload":{"feed_urls":["https://hnrss.org/frontpage"]}}`
+- `POST http://localhost:8000/internal/jobs` with `{"type":"push_digest","payload":{"limit":10,"force":true}}`
 - `POST http://localhost:8000/feishu/events` with `{"item_id":"...","action":"save_obsidian"}`
 
 FreshRSS is exposed at `http://localhost:8080`.
 
 Feishu push message structure is documented in `docs/feishu-message.md`.
+
+By default, high-importance items are pushed immediately. Medium-importance
+items wait for digest delivery at 09:00 and 17:00 in `Asia/Shanghai`.
 
 ## FreshRSS Feed Integration
 
