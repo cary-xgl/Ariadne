@@ -86,6 +86,19 @@ For Docker-to-Docker access, use the Compose service name instead of `localhost`
 FRESHRSS_FEED_URLS=http://freshrss/path/to/freshrss/output
 ```
 
+If the feed requires simple HTTP authentication, configure one of:
+
+```env
+RSS_AUTH_USERNAME=your-user
+RSS_AUTH_PASSWORD=your-password
+RSS_AUTH_BEARER_TOKEN=
+RSS_EXTRA_HEADERS=
+```
+
+`RSS_AUTH_BEARER_TOKEN` takes precedence over Basic auth. `RSS_EXTRA_HEADERS`
+accepts either a JSON object such as `{"X-Api-Key":"secret"}` or
+semicolon-separated headers such as `X-Api-Key: secret; X-Feed: fresh`.
+
 Or test a FreshRSS output URL as a one-shot job from the host:
 
 ```powershell

@@ -80,7 +80,7 @@ def ingest(conn, payload: dict) -> None:
         return
 
     for feed_url in feed_urls:
-        items = fetch_feed(feed_url)
+        items = fetch_feed(feed_url, headers=settings.rss_request_headers)
         for item in _filter_ingest_items(items, payload, settings):
             raw_item_id = upsert_raw_item(conn, item)
             enqueue(conn, "normalize", {"raw_item_id": raw_item_id})

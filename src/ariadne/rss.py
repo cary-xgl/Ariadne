@@ -27,8 +27,9 @@ class FeedItem:
         return sha256_text(f"{self.title}\n{self.url}\n{self.content}")
 
 
-def fetch_feed(url: str, timeout: int = 20) -> list[FeedItem]:
-    request = urllib.request.Request(url, headers={"User-Agent": "Ariadne/0.1"})
+def fetch_feed(url: str, timeout: int = 20, headers: dict[str, str] | None = None) -> list[FeedItem]:
+    request_headers = {"User-Agent": "Ariadne/0.1", **(headers or {})}
+    request = urllib.request.Request(url, headers=request_headers)
     with urllib.request.urlopen(request, timeout=timeout) as response:
         body = response.read()
     return parse_feed(body, url)
