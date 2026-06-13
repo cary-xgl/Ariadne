@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     obsidian_vault_path: str = ""
     dry_run_push_recipient: str = Field(default="dry-run")
     push_immediate_min_importance: float = 0.75
-    digest_min_importance: float = 0.45
+    digest_min_importance: float = -1
     digest_limit: int = 10
     digest_schedule_times: str = "09:00,17:00"
     digest_schedule_hours: str = "9,17"

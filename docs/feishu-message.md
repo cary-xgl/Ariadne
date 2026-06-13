@@ -135,8 +135,8 @@ Default routing thresholds:
 | Importance score | Route |
 | --- | --- |
 | `>= 0.75` | Immediate single-item push |
-| `>= 0.45` and `< 0.75` | Scheduled digest |
-| `< 0.45` | Silent archive |
+| `< 0.75` | Scheduled digest by default, because `DIGEST_MIN_IMPORTANCE=-1` |
+| `< DIGEST_MIN_IMPORTANCE` | Silent archive when the threshold is raised above the score |
 
 Current digest sections:
 
