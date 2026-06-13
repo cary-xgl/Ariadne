@@ -15,6 +15,7 @@ from ariadne.worker import (
     _should_skip_push,
     _should_reschedule_ingest,
     _successful_push_exists,
+    upsert_raw_item,
 )
 
 
@@ -29,6 +30,19 @@ class FakeConnection:
 
     def fetchone(self):
         return self.row
+
+
+class SequentialFakeConnection:
+    def __init__(self, rows):
+        self.rows = list(rows)
+        self.calls = []
+
+    def execute(self, query, params):
+        self.calls.append((query, params))
+        return self
+
+    def fetchone(self):
+        return self.rows.pop(0)
 
 
 def test_analysis_exists_returns_true_when_row_exists() -> None:
@@ -161,6 +175,24 @@ def test_positive_int_uses_default_for_invalid_values() -> None:
     assert _positive_int("3", 7) == 3
     assert _positive_int("0", 7) == 7
     assert _positive_int("bad", 7) == 7
+
+
+def test_upsert_raw_item_marks_new_item_for_normalization() -> None:
+    conn = SequentialFakeConnection([{"id": "source-1"}, None, {"id": "raw-1"}])
+
+    raw_item_id, created = upsert_raw_item(conn, _feed_item("one", datetime.now(timezone.utc)))
+
+    assert raw_item_id == "raw-1"
+    assert created is True
+
+
+def test_upsert_raw_item_skips_normalization_for_existing_item() -> None:
+    conn = SequentialFakeConnection([{"id": "source-1"}, {"id": "raw-1"}, {"id": "raw-1"}])
+
+    raw_item_id, created = upsert_raw_item(conn, _feed_item("one", datetime.now(timezone.utc)))
+
+    assert raw_item_id == "raw-1"
+    assert created is False
 
 
 def _feed_item(title: str, published_at: datetime | None) -> FeedItem:

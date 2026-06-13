@@ -70,8 +70,7 @@ def dispatch(conn, job: Job) -> None:
 def ingest(conn, payload: dict) -> None:
     if payload.get("sample"):
         for item in sample_feed_items():
-            raw_item_id = upsert_raw_item(conn, item)
-            enqueue(conn, "normalize", {"raw_item_id": raw_item_id})
+            _enqueue_normalize_for_new_raw_item(conn, item)
         return
 
     settings = get_settings()
@@ -89,17 +88,15 @@ def ingest(conn, payload: dict) -> None:
             settings.freshrss_api_item_limit,
         )
         for item in _filter_ingest_items(items, payload, settings):
-            raw_item_id = upsert_raw_item(conn, item)
-            enqueue(conn, "normalize", {"raw_item_id": raw_item_id})
+            _enqueue_normalize_for_new_raw_item(conn, item)
 
     for feed_url in feed_urls:
         items = fetch_feed(feed_url)
         for item in _filter_ingest_items(items, payload, settings):
-            raw_item_id = upsert_raw_item(conn, item)
-            enqueue(conn, "normalize", {"raw_item_id": raw_item_id})
+            _enqueue_normalize_for_new_raw_item(conn, item)
 
     if _should_reschedule_ingest(payload):
-        enqueue(conn, "ingest", _rescheduled_ingest_payload(payload, feed_urls), run_after_seconds=900)
+        enqueue(conn, "ingest", _rescheduled_ingest_payload(payload, feed_urls), run_after_seconds=settings.ingest_interval_seconds)
 
 
 def _default_feed_urls(settings, use_freshrss_api: bool) -> list[str]:
@@ -141,7 +138,13 @@ def _positive_int(value, default: int) -> int:
     return parsed if parsed > 0 else default
 
 
-def upsert_raw_item(conn, item: FeedItem) -> str:
+def _enqueue_normalize_for_new_raw_item(conn, item: FeedItem) -> None:
+    raw_item_id, created = upsert_raw_item(conn, item)
+    if created:
+        enqueue(conn, "normalize", {"raw_item_id": raw_item_id})
+
+
+def upsert_raw_item(conn, item: FeedItem) -> tuple[str, bool]:
     source = conn.execute(
         """
         INSERT INTO sources (type, name, url)
@@ -150,6 +153,14 @@ def upsert_raw_item(conn, item: FeedItem) -> str:
         RETURNING id
         """,
         (item.source_name, item.source_url),
+    ).fetchone()
+    existing = conn.execute(
+        """
+        SELECT id
+        FROM raw_items
+        WHERE source_id = %s AND external_id = %s
+        """,
+        (source["id"], item.external_id),
     ).fetchone()
     row = conn.execute(
         """
@@ -176,7 +187,7 @@ def upsert_raw_item(conn, item: FeedItem) -> str:
             item.content_hash,
         ),
     ).fetchone()
-    return str(row["id"])
+    return str(row["id"]), existing is None
 
 
 def normalize(conn, payload: dict) -> None:

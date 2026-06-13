@@ -46,7 +46,9 @@ items wait for digest delivery at `DIGEST_SCHEDULE_TIMES`, which defaults to
 
 Ingestion defaults to processing only the newest 100 entries per feed and only
 entries published within the last 7 days. Entries without a published time are
-kept.
+kept. Recurring ingestion runs every 4 hours by default through
+`INGEST_INTERVAL_SECONDS=14400`, and unchanged existing raw items are not
+queued for normalization again.
 
 ## FreshRSS Feed Integration
 

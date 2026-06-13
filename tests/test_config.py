@@ -24,3 +24,7 @@ def test_freshrss_api_configured_requires_base_url_username_and_password() -> No
         freshrss_api_password="api-password",
     ).freshrss_api_configured is True
     assert Settings(_env_file=None, freshrss_api_base_url="http://freshrss/api/greader.php").freshrss_api_configured is False
+
+
+def test_default_ingest_interval_is_four_hours() -> None:
+    assert Settings(_env_file=None).ingest_interval_seconds == 14400

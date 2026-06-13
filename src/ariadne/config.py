@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     digest_timezone: str = "Asia/Shanghai"
     ingest_max_item_age_days: int = 7
     ingest_max_items_per_feed: int = 100
+    ingest_interval_seconds: int = 14400
 
     @property
     def feed_urls(self) -> list[str]:
