@@ -1,5 +1,8 @@
 FROM python:3.12-slim
 
+ARG APT_MIRROR=https://mirrors.aliyun.com/debian
+ARG APT_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
+
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -7,7 +10,20 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/src
 ENV TZ=Asia/Shanghai
 
-RUN apt-get update \
+RUN set -eux; \
+    for file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "$file" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${APT_SECURITY_MIRROR}|g" \
+                -e "s|http://security.debian.org/debian-security|${APT_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${APT_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${APT_SECURITY_MIRROR}|g" \
+                -e "s|https://security.debian.org/debian-security|${APT_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${APT_MIRROR}|g" \
+                "$file"; \
+        fi; \
+    done; \
+    apt-get update \
     && apt-get install -y --no-install-recommends tzdata \
     && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone \
