@@ -385,7 +385,10 @@ def schedule_digest(conn, payload: dict) -> None:
         enqueue(conn, "push_digest", {"limit": settings.digest_limit})
 
     now = datetime.now(ZoneInfo(settings.digest_timezone))
-    next_run = _next_digest_run(now, _digest_schedule_hours(settings.digest_schedule_hours))
+    next_run = _next_digest_run(
+        now,
+        _digest_schedule_times(settings.digest_schedule_times, settings.digest_schedule_hours),
+    )
     run_after_seconds = max(60, math.ceil((next_run - now).total_seconds()))
     enqueue(conn, "schedule_digest", {}, run_after_seconds=run_after_seconds)
 
@@ -519,6 +522,22 @@ def _digest_limit(value) -> int:
     return min(max(limit, 1), 20)
 
 
+def _digest_schedule_times(value: str, fallback_hours: str = "9,17") -> list[tuple[int, int]]:
+    times = []
+    for part in value.split(","):
+        try:
+            hour_text, minute_text = part.strip().split(":", 1)
+            hour = int(hour_text)
+            minute = int(minute_text)
+        except ValueError:
+            continue
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            times.append((hour, minute))
+    if times:
+        return sorted(set(times))
+    return [(hour, 0) for hour in _digest_schedule_hours(fallback_hours)]
+
+
 def _digest_schedule_hours(value: str) -> list[int]:
     hours = []
     for part in value.split(","):
@@ -531,15 +550,19 @@ def _digest_schedule_hours(value: str) -> list[int]:
     return sorted(set(hours)) or [9, 17]
 
 
-def _next_digest_run(now: datetime, hours: list[int]) -> datetime:
+def _next_digest_run(now: datetime, times: list[tuple[int, int]]) -> datetime:
     for day_offset in (0, 1):
         day = now.date() + timedelta(days=day_offset)
-        for hour in hours:
-            candidate = datetime.combine(day, datetime.min.time(), tzinfo=now.tzinfo).replace(hour=hour)
+        for hour, minute in times:
+            candidate = datetime.combine(day, datetime.min.time(), tzinfo=now.tzinfo).replace(
+                hour=hour,
+                minute=minute,
+            )
             if candidate > now:
                 return candidate
     tomorrow = now.date() + timedelta(days=1)
-    return datetime.combine(tomorrow, datetime.min.time(), tzinfo=now.tzinfo).replace(hour=hours[0])
+    hour, minute = times[0]
+    return datetime.combine(tomorrow, datetime.min.time(), tzinfo=now.tzinfo).replace(hour=hour, minute=minute)
 
 
 def _digest_recipient() -> str:

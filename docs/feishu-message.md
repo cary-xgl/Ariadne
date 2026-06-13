@@ -127,8 +127,8 @@ Digest behavior:
 - Digest push events use recipient suffix `:digest`.
 - Digest pushes do not update `items.status` to `pushed`, so high-value
   single-item push logic can remain independent.
-- `schedule_digest` creates digest jobs at the configured local hours. The
-  default schedule is 09:00 and 17:00 in `Asia/Shanghai`.
+- `schedule_digest` creates digest jobs at the configured local times. The
+  default `DIGEST_SCHEDULE_TIMES` is 09:00 and 17:00 in `Asia/Shanghai`.
 
 Default routing thresholds:
 

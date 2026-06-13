@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql://ariadne:ariadne@127.0.0.1:5432/ariadne"
-    worker_poll_seconds: int = 5
+    worker_poll_seconds: int = 60
     worker_batch_size: int = 5
     rss_feed_urls: str = ""
     freshrss_feed_urls: str = ""
@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     push_immediate_min_importance: float = 0.75
     digest_min_importance: float = 0.45
     digest_limit: int = 10
+    digest_schedule_times: str = "09:00,17:00"
     digest_schedule_hours: str = "9,17"
     digest_timezone: str = "Asia/Shanghai"
     ingest_max_item_age_days: int = 7

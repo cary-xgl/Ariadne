@@ -41,7 +41,8 @@ FreshRSS is exposed directly at `http://localhost:8080` and through Nginx at
 Feishu push message structure is documented in `docs/feishu-message.md`.
 
 By default, high-importance items are pushed immediately. Medium-importance
-items wait for digest delivery at 09:00 and 17:00 in `Asia/Shanghai`.
+items wait for digest delivery at `DIGEST_SCHEDULE_TIMES`, which defaults to
+09:00 and 17:00 in `Asia/Shanghai`.
 
 Ingestion defaults to processing only the newest 100 entries per feed and only
 entries published within the last 7 days. Entries without a published time are
